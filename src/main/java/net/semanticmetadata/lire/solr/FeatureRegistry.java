@@ -5,11 +5,9 @@ import net.semanticmetadata.lire.imageanalysis.features.GlobalFeature;
 import net.semanticmetadata.lire.imageanalysis.features.global.*;
 import net.semanticmetadata.lire.imageanalysis.features.global.joint.JointHistogram;
 import net.semanticmetadata.lire.imageanalysis.features.global.spatialpyramid.SPCEDD;
-import net.semanticmetadata.lire.solr.features.DoubleFeatureCosineDistance;
-import net.semanticmetadata.lire.solr.features.ShortFeatureCosineDistance;
+import net.semanticmetadata.lire.solr.features.DeepFeatures;
 
 import java.util.HashMap;
-import java.util.Iterator;
 
 /**
  * This file is part of LIRE Solr, a Java library for content based image retrieval.
@@ -38,26 +36,26 @@ public class FeatureRegistry {
     static {
         // initial adding of the supported features:
         // classical features from the first implementation
-        codeToClass.put("cl", ColorLayout.class);
+        /*codeToClass.put("cl", ColorLayout.class);
         codeToClass.put("eh", EdgeHistogram.class);
         codeToClass.put("jc", JCD.class);
         codeToClass.put("oh", OpponentHistogram.class);
-        codeToClass.put("ph", PHOG.class);
+        codeToClass.put("ph", PHOG.class);*/
 
         // additional global features
-        codeToClass.put("ac", AutoColorCorrelogram.class);
+        /*codeToClass.put("ac", AutoColorCorrelogram.class);
         codeToClass.put("ad", ACCID.class);
         codeToClass.put("ce", CEDD.class);
         codeToClass.put("fc", FCTH.class);
         codeToClass.put("fo", FuzzyOpponentHistogram.class);
         codeToClass.put("jh", JointHistogram.class);
         codeToClass.put("sc", ScalableColor.class);
-        codeToClass.put("pc", SPCEDD.class);
+        codeToClass.put("pc", SPCEDD.class);*/
         // GenericFeatures filled with whatever one prefers.
-        codeToClass.put("df", DoubleFeatureCosineDistance.class);
+        //codeToClass.put("df", DoubleFeatureCosineDistance.class);
 //        codeToClass.put("df", GenericGlobalDoubleFeature.class);
-        codeToClass.put("if", GenericGlobalIntFeature.class);
-        codeToClass.put("sf", ShortFeatureCosineDistance.class);
+        //codeToClass.put("if", GenericGlobalIntFeature.class);
+        //codeToClass.put("sf", ShortFeatureCosineDistance.class);
 //        codeToClass.put("sf", GenericGlobalShortFeature.class);
 
         // local feature based histograms.
@@ -65,11 +63,11 @@ public class FeatureRegistry {
 
         // add your features here if you want more.
         // ....
+        codeToClass.put("df", DeepFeatures.class);
 
         // -----< caches to be filled >----------------
 
-        for (Iterator<String> iterator = codeToClass.keySet().iterator(); iterator.hasNext(); ) {
-            String code = iterator.next();
+        for (String code : codeToClass.keySet()) {
             hashFieldToClass.put(code + hashFieldPostfix, codeToClass.get(code));
             featureFieldToClass.put(code + featureFieldPostfix, codeToClass.get(code));
             hashFieldToFeatureField.put(code + hashFieldPostfix, code + featureFieldPostfix);
@@ -110,13 +108,12 @@ public class FeatureRegistry {
         StringBuilder sb = new StringBuilder();
         sb.append("Registered features:\n");
         sb.append("code\thash field\tfeature field\tclass\n");
-        for (Iterator<String> iterator = codeToClass.keySet().iterator(); iterator.hasNext(); ) {
-            String code = iterator.next();
+        for (String code : codeToClass.keySet()) {
             sb.append(code);
             sb.append('\t');
             sb.append(code + hashFieldPostfix);
             sb.append('\t');
-            sb.append(code+featureFieldPostfix);
+            sb.append(code + featureFieldPostfix);
             sb.append('\t');
             sb.append(codeToClass.get(code).getName());
             sb.append('\n');
@@ -144,3 +141,4 @@ public class FeatureRegistry {
         return code + featureFieldPostfix;
     }
 }
+

@@ -53,10 +53,7 @@ import java.util.TreeSet;
 
 import javax.imageio.ImageIO;
 
-import net.semanticmetadata.lire.imageanalysis.features.global.GenericGlobalShortFeature;
-import net.semanticmetadata.lire.solr.features.ShortFeatureCosineDistance;
-import net.semanticmetadata.lire.solr.tools.EncodeAndHashCSV;
-import net.semanticmetadata.lire.solr.tools.Utilities;
+import net.semanticmetadata.lire.solr.features.DeepFeatures;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.lucene.analysis.core.WhitespaceAnalyzer;
 import org.apache.lucene.document.Document;
@@ -95,6 +92,7 @@ import net.semanticmetadata.lire.indexers.hashing.MetricSpaces;
 import net.semanticmetadata.lire.solr.tools.RandomAccessBinaryDocValues;
 import net.semanticmetadata.lire.utils.ImageUtils;
 import net.semanticmetadata.lire.utils.StatsUtils;
+
 
 /**
  * This is the main LIRE RequestHandler for the Solr Plugin. It supports query by example using the indexed id,
@@ -363,7 +361,7 @@ public class LireRequestHandler extends RequestHandlerBase {
             }
 
         } catch (Exception e) {
-            rsp.add("Error", "Error reading image from URL: " + paramUrl + ": " + e.getMessage());
+            rsp.add("Error", "(handleUrlSearch)Error reading image from URL: " + paramUrl + ": " + e.getMessage());
             e.printStackTrace();
         }
         // search if the feature has been extracted and query is there.
@@ -372,6 +370,8 @@ public class LireRequestHandler extends RequestHandlerBase {
         }
     }
 
+    
+    
     /**
      * Methods orders around the hashes already by docFreq removing those with docFreq == 0
      *
@@ -384,6 +384,7 @@ public class LireRequestHandler extends RequestHandlerBase {
     private void handleExtract(SolrQueryRequest req, SolrQueryResponse rsp) throws IOException, InstantiationException, IllegalAccessException {
         SolrParams params = req.getParams();
         String paramUrl = params.get("extract");
+        System.out.println(paramUrl);
         String paramField = req.getParams().get("field", "cl_ha");
         if (!paramField.endsWith("_ha")) {
             paramField += "_ha";
@@ -393,7 +394,17 @@ public class LireRequestHandler extends RequestHandlerBase {
         GlobalFeature feat;
         // wrapping the whole part in the try
         try {
-            if (!paramField.startsWith("sf")) {
+            // ADDED FOR DEEP-FEATURES
+            if (paramField.startsWith("df")) {
+                System.out.println("DEEP FEATURES SELECTED");
+                // getting the right feature per field:
+                if (FeatureRegistry.getClassForHashField(paramField) == null) {
+                    feat = new DeepFeatures();
+                } else {
+                    feat = (DeepFeatures) FeatureRegistry.getClassForHashField(paramField).newInstance();
+                }
+                ((DeepFeatures) feat).extractLireq(paramUrl);
+            } else {
                 BufferedImage img = ImageIO.read(new URL(paramUrl).openStream());
                 img = ImageUtils.trimWhiteSpace(img);
                 // getting the right feature per field:
@@ -403,17 +414,6 @@ public class LireRequestHandler extends RequestHandlerBase {
                     feat = (GlobalFeature) FeatureRegistry.getClassForHashField(paramField).newInstance();
                 }
                 feat.extract(img);
-            } else {
-                // we assume that this is a generic short feature, like it is used in context of deep features.
-                feat = new ShortFeatureCosineDistance();
-                String[] featureDoublesAsStrings = paramUrl.split(",");
-                double[] featureDoubles = new double[featureDoublesAsStrings.length];
-                for (int i = 0; i < featureDoubles.length; i++) {
-                    featureDoubles[i] = Double.parseDouble(featureDoublesAsStrings[i]);
-                }
-                featureDoubles = Utilities.toCutOffArray(featureDoubles, EncodeAndHashCSV.TOP_N_CLASSES); // max norm
-                short[] featureShort = Utilities.toShortArray(featureDoubles); // quantize
-                ((ShortFeatureCosineDistance) feat).setData(featureShort);
             }
             rsp.add("histogram", Base64.encodeBase64String(feat.getByteArrayRepresentation()));
             if (!useMetricSpaces || true) { // select the most distinguishing hashes and deliver them back.
@@ -433,7 +433,7 @@ public class LireRequestHandler extends RequestHandlerBase {
                 rsp.add("ms_query", MetricSpaces.generateBoostedQuery(feat, queryLength));
             }
         } catch (Exception e) {
-            rsp.add("Error", "Error reading image from URL: " + paramUrl + ": " + e.getMessage());
+            rsp.add("Error", "(handleExtract)Error reading image from URL: " + paramUrl + ": " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -557,7 +557,7 @@ public class LireRequestHandler extends RequestHandlerBase {
             docIterator = docList.iterator();
         } else {
             TopDocs docs = searcher.search(query, numberOfCandidateResults);
-            numberOfResults = docs.totalHits;
+            numberOfResults = docs.totalHits.value;
             docIterator = new TopDocsIterator(docs);
         }
         time = System.currentTimeMillis() - time;

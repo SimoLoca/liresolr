@@ -40,10 +40,6 @@
 package net.semanticmetadata.lire.solr.indexing;
 
 import net.semanticmetadata.lire.imageanalysis.features.GlobalFeature;
-import net.semanticmetadata.lire.imageanalysis.features.global.ColorLayout;
-import net.semanticmetadata.lire.imageanalysis.features.global.EdgeHistogram;
-import net.semanticmetadata.lire.imageanalysis.features.global.JCD;
-import net.semanticmetadata.lire.imageanalysis.features.global.PHOG;
 import net.semanticmetadata.lire.indexers.hashing.BitSampling;
 import net.semanticmetadata.lire.indexers.hashing.MetricSpaces;
 import net.semanticmetadata.lire.indexers.parallel.WorkItem;
@@ -58,6 +54,8 @@ import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.*;
 import java.util.concurrent.LinkedBlockingQueue;
+
+import net.semanticmetadata.lire.solr.features.DeepFeatures;
 
 /**
  * This indexing application allows for parallel extraction of global features from multiple image files for
@@ -93,7 +91,7 @@ public class ParallelSolrIndexer implements Runnable {
     //    private static HashMap<Class, String> classToPrefix = new HashMap<Class, String>(5);
     private boolean force = false;
     private static boolean individualFiles = false;
-    private static int numberOfThreads = 8;
+    private static int numberOfThreads = 1;
 
     private boolean useMetricSpaces = false, useBitSampling = true;
 
@@ -113,10 +111,13 @@ public class ParallelSolrIndexer implements Runnable {
     public ParallelSolrIndexer() {
         // default constructor.
         listOfFeatures = new HashSet<Class>();
-        listOfFeatures.add(PHOG.class);
+        // Remove unwanted features, add new ones
+        
+        /*listOfFeatures.add(PHOG.class);
         listOfFeatures.add(ColorLayout.class);
         listOfFeatures.add(EdgeHistogram.class);
-        listOfFeatures.add(JCD.class);
+        listOfFeatures.add(JCD.class);*/
+        listOfFeatures.add(DeepFeatures.class); 
 
         HashingMetricSpacesManager.init(); // load reference points from disk.
 
@@ -491,6 +492,8 @@ public class ParallelSolrIndexer implements Runnable {
                     if (!locallyEnded) {
                         sb.delete(0, sb.length());
                         ByteArrayInputStream b = new ByteArrayInputStream(tmp.getBuffer());
+                        
+                        // System.out.println("tmp.filename: " + tmp.getFileName());
 
                         // reads the image. Make sure twelve monkeys lib is in the path to read all jpegs and tiffs.
                         BufferedImage read = ImageIO.read(b);
@@ -530,6 +533,7 @@ public class ParallelSolrIndexer implements Runnable {
                         // --------< creating doc >-------------------------
                         sb.append("<doc>");
                         sb.append("<field name=\"localimagefile\">");
+                        // System.out.println(tmp.getFileName());
                         sb.append(tmp.getFileName());
                         sb.append("</field>");
                         sb.append("<field name=\"id\">");
@@ -549,13 +553,19 @@ public class ParallelSolrIndexer implements Runnable {
 
                         for (GlobalFeature feature : features) {
                             String featureCode = FeatureRegistry.getCodeForClass(feature.getClass());
+                            // System.out.println("featureCode: " + featureCode);
                             if (featureCode != null) {
-                                feature.extract(img);
+                                if (featureCode.equals("df"))
+                                    //((DeepFeatures)feature).extract(img);
+                                    ((DeepFeatures)feature).extractLireq(tmp.getFileName());
+                                else
+                                    feature.extract(img);
                                 String histogramField = FeatureRegistry.codeToFeatureField(featureCode);
                                 String hashesField = FeatureRegistry.codeToHashField(featureCode);
                                 String metricSpacesField = FeatureRegistry.codeToMetricSpacesField(featureCode);
 
                                 sb.append("<field name=\"" + histogramField + "\">");
+                                //System.out.println("Byte rappr: " + Arrays.toString(feature.getByteArrayRepresentation()));
                                 sb.append(Base64.getEncoder().encodeToString(feature.getByteArrayRepresentation()));
                                 sb.append("</field>");
                                 if (useBitSampling) {
